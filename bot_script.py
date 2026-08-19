@@ -6,15 +6,19 @@ import subprocess
 from pathlib import Path
 
 from PIL import Image
-from google import genai
-from google.genai import types
+from groq import Groq
 
 
 # =========================================================
 # CONFIG
 # =========================================================
 
-GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+
+if not GROQ_API_KEY:
+    raise RuntimeError(
+        "Chưa set GROQ_API_KEY environment variable"
+    )
 
 MAIN_FRIEND_LINK = (
     "https://link.haydaygame.com/"
@@ -30,11 +34,11 @@ MAX_ACTIONS = 250
 
 
 # =========================================================
-# GEMINI
+# GROQ CLIENT
 # =========================================================
 
-client = genai.Client(
-    api_key=GEMINI_API_KEY
+client = Groq(
+    api_key=GROQ_API_KEY
 )
 
 
@@ -313,7 +317,7 @@ Rules:
 # IMAGE -> BASE64
 # =========================================================
 
-def image_bytes(image):
+def image_to_base64(image):
 
     import io
 
@@ -324,7 +328,11 @@ def image_bytes(image):
         format="PNG"
     )
 
-    return buffer.getvalue()
+    buffer.seek(0)
+    
+    return base64.b64encode(
+        buffer.getvalue()
+    ).decode("utf-8")
 
 
 # =========================================================
@@ -359,22 +367,32 @@ done
 Return JSON only.
 """
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=[
-            types.Part.from_bytes(
-                data=image_bytes(image),
-                mime_type="image/png"
-            ),
-            prompt
+    image_base64 = image_to_base64(image)
+
+    response = client.chat.completions.create(
+        model="llama-2-vision-90b",
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": SYSTEM_PROMPT + "\n\n" + prompt
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/png;base64,{image_base64}"
+                        }
+                    }
+                ]
+            }
         ],
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
-            temperature=0.1
-        )
+        temperature=0.1,
+        max_tokens=1024
     )
 
-    text = response.text.strip()
+    text = response.choices[0].message.content.strip()
 
     print("")
     print("========== AI ==========")
