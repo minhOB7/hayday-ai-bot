@@ -22,7 +22,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install google-genai pillow requests adbutils
+          pip install google-genai pillow requests adbutils groq
 
 
       - name: Enable KVM
@@ -36,6 +36,8 @@ jobs:
 
       - name: Start Android Emulator
         uses: ReactiveCircus/android-emulator-runner@v2
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         with:
           api-level: 29
           target: default
@@ -84,3 +86,4 @@ jobs:
             echo "=========================================="
 
             python bot_script.py
+
