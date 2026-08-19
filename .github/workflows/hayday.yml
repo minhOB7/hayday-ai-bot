@@ -1,0 +1,86 @@
+name: Hay Day AI Bot
+
+on:
+  workflow_dispatch:
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-22.04
+
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install google-genai pillow requests adbutils
+
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+          | sudo tee /etc/udev/rules.d/99-kvm.rules
+
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+
+      - name: Start Android Emulator
+        uses: ReactiveCircus/android-emulator-runner@v2
+        with:
+          api-level: 29
+          target: default
+          arch: x86_64
+          profile: Nexus 5
+
+          force-avd-creation: true
+
+          emulator-options: >
+            -no-window
+            -no-audio
+            -no-boot-anim
+            -gpu swiftshader_indirect
+            -no-snapshot
+
+          disable-animations: true
+
+          script: |
+
+            set -e
+
+            echo "=========================================="
+            echo "📱 ANDROID"
+            echo "=========================================="
+
+            adb wait-for-device
+
+            adb devices
+
+            echo "✅ Emulator OK"
+
+
+            echo "=========================================="
+            echo "🔎 CHECK FILES"
+            echo "=========================================="
+
+            test -f bot_script.py
+            test -f accounts.json
+
+            echo "✅ bot_script.py"
+            echo "✅ accounts.json"
+
+
+            echo "=========================================="
+            echo "🤖 START AI BOT"
+            echo "=========================================="
+
+            python bot_script.py
